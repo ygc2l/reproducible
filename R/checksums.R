@@ -51,6 +51,7 @@ if (getRversion() >= "3.1.0") {
 #'         expectation based on the \code{CHECKSUMS.txt} file.
 #'
 #' @importFrom dplyr arrange desc filter group_by left_join mutate rename row_number select
+#' @importFrom data.table as.data.table
 #' @export
 #' @rdname Checksums
 #'
@@ -62,7 +63,7 @@ if (getRversion() >= "3.1.0") {
 #' modulePath <- file.path("path", "to", "modules")
 #'
 #' ## verify checksums of all data files
-#' Checksums(moduleName, modulePath)
+#' Checksums(file.path(modulePath, moduleName))
 #'
 #' ## write new CHECKSUMS.txt file
 #'
@@ -117,7 +118,10 @@ setMethod(
                  stringsAsFactors = FALSE)
     }
     #if (dim(txt)[1] == 0) { # if there are no rows
-    txt <- dplyr::mutate_all(txt, as.character)
+    browser()
+    txt1 <- dplyr::mutate_all(txt, as.character)
+    txt <- as.data.table(lapply(txt, as.character))
+    browser(expr = !identical(as.data.table(txt1), txt))
     #}
     if (is.null(txt$filesize)) txt$filesize <- rep("", NROW(txt))
     txtRead <- txt # keep a copy even if writing
@@ -196,6 +200,7 @@ setMethod(
     if (write) {
       writeChecksumsTable(out, checksumFile, dotsWriteTable)
       txt <- txtRead
+      browser()
       txt <- dplyr::right_join(txt, out)
       # wh <- match(txt$file, basename(filesToCheck))
       # wh <- na.omit(wh)
@@ -205,6 +210,9 @@ setMethod(
       # }
       # txt <- txt[wh,]
     }
+    out1 <- out # for rewrite to data.table syntax -- delete after dealt with
+    txt1 <- txt
+    browser()
     results.df <- out %>%
       dplyr::mutate(actualFile = file) %>%
       {
@@ -244,6 +252,14 @@ setMethod(
         #}
       } %>%
       dplyr::filter(row_number() == 1L)
+
+    setDT(out)
+    set(out, , "actualFile", out$file)
+    setDT(txt)
+    if (write)
+      out[txt, on = "file"]
+    else
+      txt[out, on = "file"]
 
       return(invisible(results.df))
     #}
