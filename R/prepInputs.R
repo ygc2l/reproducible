@@ -283,7 +283,7 @@ prepInputs <- function(targetFile = NULL, url = NULL, archive = NULL, alsoExtrac
     if (identical(out$fun, raster::raster)) {
       ## Don't cache the reading of a raster
       ## -- normal reading of raster on disk is fast b/c only reads metadata
-      do.call(out$fun, append(list(asPath(out$targetFilePath)), args))
+      do.call(out$fun, append(list(asPath(out$targetFilePath)), args), quote = TRUE)
     } else {
       if (identical(out$fun, base::load)) {
         if (is.null(args$envir)) {
@@ -296,11 +296,12 @@ prepInputs <- function(targetFile = NULL, url = NULL, archive = NULL, alsoExtrac
           args$envir <- NULL
           returnAsList <- FALSE
         }
-        objs <- do.call(out$fun, append(list(file = out$targetFilePath, envir = tmpEnv), args))
+        objs <- do.call(out$fun, append(list(file = out$targetFilePath, envir = tmpEnv), args),
+                        quote = TRUE)
         if (returnAsList)
           as.list(tmpEnv, all.names = TRUE)
       } else {
-        Cache(do.call, out$fun, append(list(asPath(out$targetFilePath)), args),
+        Cache(do.call, out$fun, append(list(asPath(out$targetFilePath)), args), quote = TRUE,
               useCache = useCache)
       }
     }
@@ -314,6 +315,7 @@ prepInputs <- function(targetFile = NULL, url = NULL, archive = NULL, alsoExtrac
     x <- Cache(do.call, postProcess, append(list(x = x, filename1 = out$targetFilePath,
                                                  overwrite = overwrite,
                                                  destinationPath = out$destinationPath), out$dots),
+               quote = TRUE,
                useCache = useCache)
   }
 
@@ -616,7 +618,7 @@ extractFromArchive <- function(archive,
   } else {
     c(argList)
   }
-  extractedFiles <- do.call(fun, c(args, argList))
+  extractedFiles <- do.call(fun, c(args, argList), quote = TRUE)
   worked <- if (isUnzip) {
     all(file.path(args$exdir, basename(argList[[1]])) %in% extractedFiles)
   } else {

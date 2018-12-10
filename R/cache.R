@@ -315,9 +315,9 @@ setMethod(
       message(crayon::green("useCache is FALSE, skipping Cache.",
                             "To turn Caching on, use options(reproducible.useCache = TRUE)"))
       if (fnDetails$isDoCall) {
-        do.call(modifiedDots$what, args = modifiedDots$args)
+        do.call(modifiedDots$what, args = modifiedDots$args, quote = TRUE)
       } else {
-        do.call(FUN, args = modifiedDots)
+        do.call(FUN, args = modifiedDots, quote = TRUE)
       }
     } else {
 
@@ -757,7 +757,7 @@ setMethod(
               message("  There was no record of files in sideEffects")
             }
             if (any(needDwd)) {
-              do.call(FUN, list(...))
+              do.call(FUN, list(...), quote = TRUE)
             }
 
             if (NROW(fromCopy)) {
@@ -771,9 +771,11 @@ setMethod(
 
           # This allows for any class specific things
           output <- if (fnDetails$isDoCall) {
-            do.call(.prepareOutput, args = append(list(output, cacheRepo), modifiedDots$args))
+            do.call(.prepareOutput, args = append(list(output, cacheRepo), modifiedDots$args),
+                    quote = TRUE)
           } else {
-            do.call(.prepareOutput, args = append(list(output, cacheRepo), modifiedDots))
+            do.call(.prepareOutput, args = append(list(output, cacheRepo), modifiedDots),
+                    quote = TRUE)
           }
 
 

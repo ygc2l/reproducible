@@ -219,7 +219,7 @@ postProcess.spatialObjects <- function(x, filename1 = NULL, filename2 = TRUE,
       # writeOutputs
       ##################################
       x <- do.call(writeOutputs, append(list(x = x, filename2 = newFilename,
-                                              overwrite = overwrite), dots))
+                                              overwrite = overwrite), dots), quote = TRUE)
 
       if (dir.exists(file.path(raster::tmpDir(), "bigRasters"))) {
         ## Delete gdalwarp results in temp
@@ -311,12 +311,12 @@ cropInputs.spatialObjects <- function(x, studyArea = NULL, rasterToMatch = NULL,
         dots <- list(...)
         dots[.formalsNotInCurrentDots("crop", ...)] <- NULL
         if (canProcessInMemory(x, 4)) {
-        x <- do.call(raster::crop, args = append(list(x = x, y = cropExtent), dots))
+        x <- do.call(raster::crop, args = append(list(x = x, y = cropExtent), dots), quote = TRUE)
         } else {
           x <- do.call(raster::crop, args = append(list(x = x,
                                                         y = cropExtent,
                                                         filename = paste0(tempfile(), ".tif")),
-                                                   dots))
+                                                   dots), quote = TRUE)
         }
         if (is.null(x)) {
           message("    polygons do not intersect.")
@@ -558,13 +558,13 @@ projectInputs.Raster <- function(x, targetCRS = NULL, rasterToMatch = NULL, ...)
 
         if (is.null(rasterToMatch)) {
           Args <- append(dots, list(from = x, crs = targetCRS))
-          warn <- capture_warnings(x <- do.call(projectRaster, args = Args))
+          warn <- capture_warnings(x <- do.call(projectRaster, args = Args, quote = TRUE))
 
         } else {
           # projectRaster does silly things with integers, i.e., it converts to numeric
           tempRas <- projectExtent(object = rasterToMatch, crs = targetCRS)
           Args <- append(dots, list(from = x, to = tempRas))
-          warn <- capture_warnings(x <- do.call(projectRaster, args = Args))
+          warn <- capture_warnings(x <- do.call(projectRaster, args = Args, quote = TRUE))
 
           if (identical(crs(x), crs(rasterToMatch)) & any(res(x) != res(rasterToMatch))) {
             if (all(res(x) %==% res(rasterToMatch))) {
@@ -901,7 +901,8 @@ writeOutputs.Raster <- function(x, filename2 = NULL,
         filename2 <- filename3
       }
     }
-    xTmp <- do.call(writeRaster, args = c(x = x, filename = filename2, overwrite = overwrite, dots))
+    xTmp <- do.call(writeRaster, args = c(x = x, filename = filename2, overwrite = overwrite, dots),
+                    quote = TRUE)
     #Before changing to do.call, dots were not being added.
     # This is a bug in writeRaster was spotted with crs of xTmp became
     # +proj=lcc +lat_1=49 +lat_2=77 +lat_0=0 +lon_0=-95 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs
@@ -925,7 +926,8 @@ writeOutputs.Spatial <- function(x, filename2 = NULL,
     notWanted2 <- .formalsNotInCurrentDots(rgdal::writeOGR, ...)
     keepForDots <- c(setdiff(notWanted1, notWanted2), setdiff(names(dots), notWanted1))
     dots <- dots[keepForDots]
-    do.call(shapefile, append(dots, list(x = x, filename = filename2, overwrite = overwrite)))
+    do.call(shapefile, append(dots, list(x = x, filename = filename2, overwrite = overwrite)),
+            quote = TRUE)
   }
   x
 }
