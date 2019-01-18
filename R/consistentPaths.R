@@ -146,3 +146,24 @@ setMethod("checkPath",
           definition = function() {
             stop("Invalid path: no path specified.")
 })
+
+#' @export
+#' @rdname checkPath
+setMethod("checkPath",
+          signature(path = "list", create = "ANY"),
+          definition = function(path, create) {
+            if (missing(create)) create = FALSE
+            lapply(path, checkPath, create = create)
+          })
+
+#' @export
+#' @rdname checkPath
+#' @importClassesFrom googledrive drive_id
+setMethod("checkPath",
+          signature(path = "drive_id", create = "ANY"),
+          definition = function(path, create) {
+            a <- try(drive_ls(path), silent = TRUE)
+            if (is(a, "try_error"))
+              stop(path, " is not a google drive location that can be accessed")
+            return(path)
+          })

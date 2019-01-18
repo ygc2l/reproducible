@@ -7,6 +7,8 @@
 \alias{checkPath,character,missing-method}
 \alias{checkPath,NULL,ANY-method}
 \alias{checkPath,missing,ANY-method}
+\alias{checkPath,list,ANY-method}
+\alias{checkPath,drive_id,ANY-method}
 \title{Check directory path}
 \usage{
 checkPath(path, create)
@@ -18,6 +20,10 @@ checkPath(path, create)
 \S4method{checkPath}{`NULL`,ANY}(path)
 
 \S4method{checkPath}{missing,ANY}()
+
+\S4method{checkPath}{list,ANY}(path, create)
+
+\S4method{checkPath}{drive_id,ANY}(path, create)
 }
 \arguments{
 \item{path}{A character string corresponding to a directory path.}

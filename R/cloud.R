@@ -168,6 +168,7 @@ cloudUpdateChecksums <- function(checksums, checksumsFileID) {
 #' a4 <- cloudCache(rnorm, 1, cloudFolderID = newDir$id)
 #'
 #' # Clean up -- see cloudSyncCache
+#' drive_rm(as_id(newDir$id))
 #' }
 cloudCache <- function(..., useCloud = getOption("reproducible.useCloud", TRUE),
                        checksumsFileID = NULL, cloudFolderID = NULL) {
