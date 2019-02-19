@@ -105,6 +105,7 @@ cloudWrite <- function(object, digest, cloudFolderID = NULL, checksums, checksum
 #' @rdname cloudExtras
 #' @seealso \code{\link{cloudSyncCache}}, \code{\link{cloudCache}}, \code{\link{cloudExtras}}
 cloudDownloadChecksums <- function(checksumsFileID) {
+  browser()
   checksumsFilename <- tempfile(fileext = ".rds");
   os <- tolower(Sys.info()[["sysname"]])
   .onLinux <- .Platform$OS.type == "unix" && unname(os) == "linux" &&
@@ -114,8 +115,12 @@ cloudDownloadChecksums <- function(checksumsFileID) {
     if (exists("futureEnv", envir = .reproEnv))
       if (exists("cloudChecksums", envir = .reproEnv$futureEnv)) # it should have been deleted in `checkFutures`
         bb <- future::value(.reproEnv$futureEnv)       # but if not, then force its value here
-  drive_download(as_id(checksumsFileID), path = checksumsFilename, verbose = FALSE)
-  checksums <- readRDS(checksumsFilename)
+  if (getOption("reproducible.useGooglesheets", FALSE)) {
+    checksums <- gs_read(checksumsFileID)
+  } else {
+    drive_download(as_id(checksumsFileID), path = checksumsFilename, verbose = FALSE)
+    checksums <- readRDS(checksumsFilename)
+  }
 }
 
 #' @details
@@ -127,9 +132,14 @@ cloudDownloadChecksums <- function(checksumsFileID) {
 #' @importFrom googledrive as_id drive_update
 #' @rdname cloudExtras
 cloudUpdateChecksums <- function(checksums, checksumsFileID) {
-  saveRDS(checksums, file = getOption("reproducible.cloudChecksumsFilename"))
-  drive_update(as_id(checksumsFileID), media = getOption("reproducible.cloudChecksumsFilename"),
-               verbose = FALSE)
+  browser()
+  if (getOption("reproducible.useGooglesheets", FALSE)) {
+    gs_edit_cells(checksumsFileID, input = checksums, anchor = "A1", byrow = TRUE)
+  } else {
+    saveRDS(checksums, file = getOption("reproducible.cloudChecksumsFilename"))
+    drive_update(as_id(checksumsFileID), media = getOption("reproducible.cloudChecksumsFilename"),
+                 verbose = FALSE)
+  }
 }
 
 #' Experimental use of googledrive for Caching
@@ -286,19 +296,30 @@ cloudCache <- function(..., useCloud = getOption("reproducible.useCloud", TRUE),
 #' @keywords internal
 getChecksumsFileID <- function(cloudFolderID) {
   lsFiles <- googledrive::drive_ls(as_id(cloudFolderID))
+  browser()
   whChecksums <- which(lsFiles$name %in% "checksums")
   checksumsFileID <- if (length(whChecksums) > 0) {
-    lsFiles[whChecksums[1],]$id
+    if (getOption("reproducible.useGooglesheets", FALSE)) {
+      gs_key(lsFiles[whChecksums[1],]$id)
+    } else {
+      lsFiles[whChecksums[1],]$id
+    }
   } else {
     message(crayon::blue("There is no checkums file yet; creating it and uploading"))
     checksums <- data.table(cacheId = character(), id = character(), time = character(),
                             filesize = integer())
     saveRDS(checksums, file = getOption("reproducible.cloudChecksumsFilename"))
-    res <- drive_upload(getOption("reproducible.cloudChecksumsFilename"),
-                        path = as_id(cloudFolderID),
-                        name = "checksums",
-                        verbose = FALSE)
-    res$id
+    if (getOption("reproducible.useGooglesheets", FALSE)) {
+      res <- gs_new("checksums", verbose = TRUE, row_extent = 5, col_extent = 6, input = checksums)
+      drive_cp(as_id(res$browser_url), path = as_id(cloudFolderID), name = "checksums")
+      res
+    } else {
+      res <- drive_upload(getOption("reproducible.cloudChecksumsFilename"),
+                          path = as_id(cloudFolderID),
+                          name = "checksums",
+                          verbose = FALSE)
+      res$id
+    }
   }
   return(checksumsFileID)
 }
@@ -578,10 +599,12 @@ cloudUploadFileAndChecksums <- function(objectFile, cloudFolderID, digest,
       list(checksums,
            data.table(cacheId = digest, id = uploadRes$id, time = as.character(Sys.time()),
                       filesize = file.size(objectFile))), use.names = TRUE, fill = TRUE)
-    saveRDS(checksums, file = getOption("reproducible.cloudChecksumsFilename"))
-    res <- drive_update(as_id(checksumsFileID),
-                        media = getOption("reproducible.cloudChecksumsFilename"),
-                        verbose = FALSE)
+    browser()
+    res <- cloudUpdateChecksums(checksums, checksumsFileID)
+    #saveRDS(checksums, file = getOption("reproducible.cloudChecksumsFilename"))
+    #res <- drive_update(as_id(checksumsFileID),
+    #                    media = getOption("reproducible.cloudChecksumsFilename"),
+    #                    verbose = FALSE)
   } else {
     if (any(grepl("403", uploadRes))) {
       message("No write access to cloudFolderID; not uploading cached copy")
