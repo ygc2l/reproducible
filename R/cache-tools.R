@@ -191,7 +191,7 @@ setMethod(
     memoise::forget(.loadFromLocalRepoMem)
     try(setindex(objsDT, NULL), silent = TRUE)
     return(invisible(objsDT))
-})
+  })
 
 #' @rdname viewCache
 #' @export
@@ -324,7 +324,7 @@ setMethod(
     if (verboseMessaging)
       .messageCacheSize(x, artifacts = unique(objsDT$artifact))
     objsDT
-})
+  })
 
 #' @rdname viewCache
 setGeneric("keepCache", function(x, userTags = character(), after, before,
@@ -358,7 +358,7 @@ setMethod(
       clearCache(x, eliminate, verboseMessaging = FALSE, regexp = FALSE, ask = ask)
     }
     return(objsDT)
-})
+  })
 
 #' Merge two cache repositories together
 #'
@@ -390,53 +390,60 @@ setGeneric("mergeCache", function(cacheTo, cacheFrom) {
 setMethod(
   "mergeCache",
   definition = function(cacheTo, cacheFrom) {
-    suppressMessages(cacheFromList <- showCache(cacheFrom))
-    suppressMessages(cacheToList <- showCache(cacheTo))
+    #suppressMessages(cacheFromList <- showCache(cacheFrom))
+    #suppressMessages(cacheToList <- showCache(cacheTo))
 
-    artifacts <- unique(cacheFromList$artifact)
-    objectList <- lapply(artifacts, function(artifact) {
-      if (!(artifact %in% cacheToList$artifact)) {
-        outputToSave <- try(loadFromLocalRepo(artifact, repoDir = cacheFrom, value = TRUE))
-        if (is(outputToSave, "try-error")) {
-          message("Continuing to load others")
-          outputToSave <- NULL
-        }
-
-        ## Save it
-        written <- FALSE
-        if (is(outputToSave, "Raster")) {
-          outputToSave <- .prepareFileBackedRaster(outputToSave, repoDir = cacheTo)
-        }
-        userTags <- cacheFromList[artifact][!tagKey %in% c("format", "name", "class", "date", "cacheId"),
-                                            list(tagKey, tagValue)]
-        userTags <- c(paste0(userTags$tagKey, ":", userTags$tagValue))
-        while (!written) {
-          saved <- suppressWarnings(try(
-            saveToLocalRepo(outputToSave, repoDir = cacheTo,
-                            artifactName = NULL,
-                            archiveData = FALSE, archiveSessionInfo = FALSE,
-                            archiveMiniature = FALSE, rememberName = FALSE,
-                            silent = TRUE, userTags = userTags),
-            silent = TRUE
-          ))
-          # This is for simultaneous write conflicts. SQLite on Windows can't handle them.
-          written <- if (is(saved, "try-error")) {
-            Sys.sleep(0.05)
-            FALSE
-          } else {
-            TRUE
+    suppressMessages(cacheFromList <- getCacheId(cacheFrom))
+    suppressMessages(cacheToList <- getCacheId(cacheTo))
+    artifacts <- unique(cacheFromList)
+    theIns <- cacheFromList %in% cacheToList
+    artifactsToCopy <- cacheFromList[!theIns]
+    message("Skipping objects with cacheIds:\n ", paste(cacheFromList[theIns], collapse = ", "), ";\n - already in ", cacheTo)
+    if (length(artifactsToCopy) > 0) {
+      objectList <- lapply(artifactsToCopy, function(artifact) {
+        #if (!(artifact %in% cacheToList)) {
+          outputToSave <- try(loadFromLocalRepo(artifact, repoDir = cacheFrom, value = TRUE))
+          if (is(outputToSave, "try-error")) {
+            message("Continuing to load others")
+            outputToSave <- NULL
           }
-        }
-        message(artifact, " copied")
-        outputToSave
-      } else {
-        message("Skipping ", artifact, "; already in ", cacheTo)
-      }
-    })
+
+          ## Save it
+          written <- FALSE
+          if (is(outputToSave, "Raster")) {
+            outputToSave <- .prepareFileBackedRaster(outputToSave, repoDir = cacheTo)
+          }
+          userTags <- cacheFromList[artifact][!tagKey %in% c("format", "name", "class", "date"),
+                                              list(tagKey, tagValue)]
+          userTags <- c(paste0(userTags$tagKey, ":", userTags$tagValue))
+          while (!written) {
+            saved <- suppressWarnings(try(
+              saveToLocalRepo(outputToSave, repoDir = cacheTo,
+                              artifactName = NULL,
+                              archiveData = FALSE, archiveSessionInfo = FALSE,
+                              archiveMiniature = FALSE, rememberName = FALSE,
+                              silent = TRUE, userTags = userTags),
+              silent = TRUE
+            ))
+            # This is for simultaneous write conflicts. SQLite on Windows can't handle them.
+            written <- if (is(saved, "try-error")) {
+              Sys.sleep(0.05)
+              FALSE
+            } else {
+              TRUE
+            }
+          }
+          message(artifact, " copied")
+          outputToSave
+        #} else {
+
+        #}
+      })
+    }
     .messageCacheSize(cacheTo)
 
     return(invisible(cacheTo))
-})
+  })
 
 #' @keywords internal
 .messageCacheSize <- function(x, artifacts = NULL) {
@@ -488,4 +495,12 @@ checkFutures <- function() {
     if (length(resol) > 0)
       rm(list = names(resol)[resol], envir = .reproEnv$futureEnv)
   }
+}
+
+getCacheId <- function(x, artifact) {
+  a <- showCache(x)
+  if (!missing(artifact)) {
+    a <- a[userTags %in% artifact]
+  }
+  a[tagKey == "cacheId"]$tagValue
 }
