@@ -32,3 +32,17 @@ of merging.
 \details{
 This is still experimental
 }
+\examples{
+## mergeCache
+c1 <- file.path(tempdir(), "tmp1")
+c2 <- file.path(tempdir(), "tmp2")
+a1 <- Cache(rnorm, 1, cacheRepo = c1)
+a2 <- Cache(rnorm, 1, cacheRepo = c2) # same, but different cache
+a3 <- Cache(rnorm, 2, cacheRepo = c2) # different
+showCache(c1) # only 1 object
+showCache(c2) # 2 objects
+mergeCache(cacheTo = c1, cacheFrom = c2) # total of 2 objects now in c1
+showCache(c1) # only 2 objects are there
+dir(c2)
+unlink(c(c1, c2), recursive = TRUE)
+}

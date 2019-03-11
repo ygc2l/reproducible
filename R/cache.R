@@ -829,15 +829,16 @@ setMethod(
       } else {
         while (written >= 0) {
           saved <- suppressWarnings(try(silent = TRUE,
-                                        saveToLocalRepo(
+                                        saveToLocalRepo2(
                                           outputToSave,
-                                          repoDir = cacheRepo,
-                                          artifactName = NULL,
-                                          archiveData = FALSE,
-                                          archiveSessionInfo = FALSE,
-                                          archiveMiniature = FALSE,
-                                          rememberName = FALSE,
-                                          silent = TRUE,
+                                          cacheRepo = cacheRepo,
+                                          cacheId = outputHash,
+                                          #artifactName = NULL,
+                                          #archiveData = FALSE,
+                                          #archiveSessionInfo = FALSE,
+                                          #archiveMiniature = FALSE,
+                                          #rememberName = FALSE,
+                                          #silent = TRUE,
                                           userTags = userTags
                                         )
           ))

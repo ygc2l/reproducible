@@ -387,22 +387,38 @@ setGeneric("mergeCache", function(cacheTo, cacheFrom) {
 
 #' @export
 #' @rdname mergeCache
+#' @examples
+#' ## mergeCache
+#' c1 <- file.path(tempdir(), "tmp1")
+#' c2 <- file.path(tempdir(), "tmp2")
+#' a1 <- Cache(rnorm, 1, cacheRepo = c1)
+#' a2 <- Cache(rnorm, 1, cacheRepo = c2) # same, but different cache
+#' a3 <- Cache(rnorm, 2, cacheRepo = c2) # different
+#' showCache(c1) # only 1 object
+#' showCache(c2) # 2 objects
+#' mergeCache(cacheTo = c1, cacheFrom = c2) # total of 2 objects now in c1
+#' showCache(c1) # only 2 objects are there
+#' dir(c2)
+#' unlink(c(c1, c2), recursive = TRUE)
 setMethod(
   "mergeCache",
   definition = function(cacheTo, cacheFrom) {
-    #suppressMessages(cacheFromList <- showCache(cacheFrom))
-    #suppressMessages(cacheToList <- showCache(cacheTo))
 
-    suppressMessages(cacheFromList <- getCacheId(cacheFrom))
-    suppressMessages(cacheToList <- getCacheId(cacheTo))
-    artifacts <- unique(cacheFromList)
-    theIns <- cacheFromList %in% cacheToList
-    artifactsToCopy <- cacheFromList[!theIns]
-    message("Skipping objects with cacheIds:\n ", paste(cacheFromList[theIns], collapse = ", "), ";\n - already in ", cacheTo)
-    if (length(artifactsToCopy) > 0) {
-      objectList <- lapply(artifactsToCopy, function(artifact) {
-        #if (!(artifact %in% cacheToList)) {
-          outputToSave <- try(loadFromLocalRepo(artifact, repoDir = cacheFrom, value = TRUE))
+    suppressMessages(shownCacheFrom <- showCache(cacheFrom))
+    suppressMessages(shownCacheTo <- showCache(cacheTo))
+    suppressMessages(cacheFromCacheIds <- getCacheId(shownCache = shownCacheFrom))
+    suppressMessages(cacheToCacheIds <- getCacheId(shownCache = shownCacheTo))
+    cacheIds <- unique(cacheFromCacheIds)
+    theIns <- cacheFromCacheIds %in% cacheToCacheIds
+    cacheIdsToCopy <- cacheFromCacheIds[!theIns]
+    message("Skipping objects with cacheIds:\n ", paste(cacheFromCacheIds[theIns], collapse = ", "),
+            ";\n - already in ", normPath(cacheTo))
+    if (length(cacheIdsToCopy) > 0) {
+      objectList <- lapply(cacheIdsToCopy, function(cacheId) {
+        #if (!(cacheId %in% cacheToCacheIds)) {
+          outputToSave <- try(loadFromLocalRepo(
+            getArtifact(shownCache = shownCacheFrom, cacheId = cacheId),
+            repoDir = cacheFrom, value = TRUE))
           if (is(outputToSave, "try-error")) {
             message("Continuing to load others")
             outputToSave <- NULL
@@ -413,16 +429,13 @@ setMethod(
           if (is(outputToSave, "Raster")) {
             outputToSave <- .prepareFileBackedRaster(outputToSave, repoDir = cacheTo)
           }
-          userTags <- cacheFromList[artifact][!tagKey %in% c("format", "name", "class", "date"),
-                                              list(tagKey, tagValue)]
-          userTags <- c(paste0(userTags$tagKey, ":", userTags$tagValue))
+          #browser()
+          userTags <- getUserTags(shownCache = shownCacheFrom, cacheId = cacheId)
           while (!written) {
             saved <- suppressWarnings(try(
-              saveToLocalRepo(outputToSave, repoDir = cacheTo,
-                              artifactName = NULL,
-                              archiveData = FALSE, archiveSessionInfo = FALSE,
-                              archiveMiniature = FALSE, rememberName = FALSE,
-                              silent = TRUE, userTags = userTags),
+              saveToLocalRepo2(outputToSave, cacheRepo = cacheTo,
+                               cacheId = cacheId,
+                              userTags = userTags),
               silent = TRUE
             ))
             # This is for simultaneous write conflicts. SQLite on Windows can't handle them.
@@ -433,11 +446,7 @@ setMethod(
               TRUE
             }
           }
-          message(artifact, " copied")
-          outputToSave
-        #} else {
-
-        #}
+          message(cacheId, " copied")
       })
     }
     .messageCacheSize(cacheTo)
@@ -497,10 +506,37 @@ checkFutures <- function() {
   }
 }
 
-getCacheId <- function(x, artifact) {
-  a <- showCache(x)
+getCacheId <- function(cacheRepo, shownCache, artifact) {
+  if (missing(shownCache))
+    suppressMessages(shownCache <- showCache(cacheRepo))
   if (!missing(artifact)) {
-    a <- a[userTags %in% artifact]
+    shownCache <- shownCache[userTags %in% artifact]
   }
-  a[tagKey == "cacheId"]$tagValue
+  shownCache[tagKey == "cacheId"]$tagValue
 }
+
+getArtifact <- function(cacheRepo, shownCache, cacheId) {
+  if (missing(shownCache))
+    suppressMessages(shownCache <- showCache(cacheRepo))
+  if (!missing(cacheId)) {
+    shownCache <- shownCache[tagValue %in% cacheId]
+  }
+  shownCache[tagKey == "cacheId", artifact]
+}
+
+getUserTags <- function(cacheRepo, shownCache, cacheId, concatenated = TRUE) {
+  if (missing(shownCache))
+    suppressMessages(shownCache <- showCache(cacheRepo))
+  arts <- getArtifact(shownCache = shownCache, cacheId = cacheId)
+  if (!missing(cacheId)) {
+    shownCache <- shownCache[artifact %in% arts]
+  }
+
+  userTags <- shownCache[!tagKey %in% c("format", "name", "class", "date", "cacheId"),
+                           list(tagKey, tagValue)]
+  if (concatenated)
+    userTags <- c(paste0(userTags$tagKey, ":", userTags$tagValue))
+  userTags
+}
+
+#assignInNamespace("saveToLocalRepo", saveToLocalRepo2, ns = "archivist")
