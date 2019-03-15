@@ -506,37 +506,3 @@ checkFutures <- function() {
   }
 }
 
-getCacheId <- function(cacheRepo, shownCache, artifact) {
-  if (missing(shownCache))
-    suppressMessages(shownCache <- showCache(cacheRepo))
-  if (!missing(artifact)) {
-    shownCache <- shownCache[userTags %in% artifact]
-  }
-  shownCache[tagKey == "cacheId"]$tagValue
-}
-
-getArtifact <- function(cacheRepo, shownCache, cacheId) {
-  if (missing(shownCache))
-    suppressMessages(shownCache <- showCache(cacheRepo))
-  if (!missing(cacheId)) {
-    shownCache <- shownCache[tagValue %in% cacheId]
-  }
-  shownCache[tagKey == "cacheId", artifact]
-}
-
-getUserTags <- function(cacheRepo, shownCache, cacheId, concatenated = TRUE) {
-  if (missing(shownCache))
-    suppressMessages(shownCache <- showCache(cacheRepo))
-  arts <- getArtifact(shownCache = shownCache, cacheId = cacheId)
-  if (!missing(cacheId)) {
-    shownCache <- shownCache[artifact %in% arts]
-  }
-
-  userTags <- shownCache[!tagKey %in% c("format", "name", "class", "date", "cacheId"),
-                           list(tagKey, tagValue)]
-  if (concatenated)
-    userTags <- c(paste0(userTags$tagKey, ":", userTags$tagValue))
-  userTags
-}
-
-#assignInNamespace("saveToLocalRepo", saveToLocalRepo2, ns = "archivist")
